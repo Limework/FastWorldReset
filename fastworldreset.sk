@@ -9,7 +9,7 @@ options:
 	#Creating blank world will not function for resetting (as there will be no template) until you update template by running /fwr create on the same world again.
 	#useful for when you want to copypaste a map into a newly created world and then make it resettable
 	#without having to go through another world management plugin to do it
-	AllowCreatingNewWorlds: false 
+	AllowCreatingNewWorlds: true
 
 #------------- End of Configuration -------------
 #The script starts here, only edit if you know what you are doing.
@@ -92,7 +92,7 @@ function unloadChunks(world: world, saving: boolean) :: boolean:
 		return true
 	else:
 		return false
-function teleportOut(world: world) :: boolean:
+function teleportOut(world: world):
 	if {fastworldreset::exitpoint} is not a location:
 		delete {fastworldreset::exitpoint}
 	set {_spawnpoint} to {fastworldreset::exitpoint} ? (spawn point of "%{-fwrcache::mainworld}%" parsed as a world)
@@ -101,13 +101,9 @@ function teleportOut(world: world) :: boolean:
 		if passenger of loop-player is set:
 			loop passengers of loop-player:
 				make loop-value-2 dismount
-		teleport loop-player to {_spawnpoint}
-	return true
+	teleport (all players in {_world}) to {_spawnpoint}
 function unloadWorld(world: world, saving: boolean = true) :: boolean:
 	set {_n} to now
-	#teleport players out
-	
-	teleportOut({_world}) = true
 		
 	#unload the world
 	
@@ -265,6 +261,9 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 						Files.isDirectory(Paths.get({_targetpath})) is false:
 							send "&a&lFastWorldReset&2&l> &cFailed to copy world! Are file permissions right? Check console for errors." to {_p}
 							return true
+					set {_uid} to new File("%{_targetpath}%/uid.dat")
+					if {_uid}.exists() is true:
+						{_uid}.delete()
 					return false
 				run section {_section} async and store the result in {_failed} and wait
 				
@@ -317,7 +316,12 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 					resetWorld(arg 2, sender)
 				else:
 				
-					teleportOut({_world}) = true
+					teleportOut({_world})
+					
+					#waiting until all players are teleported out, to support asynchronous teleportations
+					
+					while amount of players in {_world} is not 0:
+						wait a tick
 					
 					#needed to detect improperly reset world when a bad plugin is disturbing reset, such as FastAsyncWorldEdit
 
@@ -386,33 +390,43 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 				send formatted "&a&lFastWorldReset&2&l> &cThe specified world is already loaded! (%arg 3%)"
 				stop
 			
-
-			set {_w} to arg 3
-			set {_templatedir} to "%{_worlddir}%/FastWorldReset/%arg 2%"
+			#if the specified template is a clone in itself, then use the clone's template
+			
+			if {fastworldresetclone::%arg 2%} is set:
+				set {_template} to {fastworldresetclone::%arg 2%}
+			else:
+				set {_template} to arg 2
+				
+			set {_newworld} to arg 3
+			set {_templatedir} to "%{_worlddir}%/FastWorldReset/%{_template}%"
 			set {_p} to sender
 			create new section stored in {_section}:
 				Files.isDirectory(Paths.get({_templatedir})) is false:
 					send "&a&lFastWorldReset&2&l> &cThe specified world template is not saved in FastWorldReset folder, thus it cannot be used for cloning." to {_p}
 					return true
-				else if Files.isDirectory(Paths.get("%{_worlddir}%/%{_w}%")) is true:
-					send formatted "&a&lFastWorldReset&2&l> &6Hm... There's already %arg 3% world folder, I'll just load it then." to {_p}
+				else if Files.isDirectory(Paths.get("%{_worlddir}%/%{_newworld}%")) is true:
+					send formatted "&a&lFastWorldReset&2&l> &6Hm... There's already %{_newworld}% world folder, I'll just load it then." to {_p}
 				else:
-					FileUtils.copyDirectory((new File("%{_templatedir}%")), (new File("%{_worlddir}%/%{_w}%")))
+					FileUtils.copyDirectory((new File("%{_templatedir}%")), (new File("%{_worlddir}%/%{_newworld}%")))
+					
 				return false
 			run section {_section} async and store the result in {_stop} and wait
 			stop if {_stop} is true
-			set {-fastworldresetworld::%arg 3%} to true
-			set {fastworldresetclone::%arg 3%} to arg 2
-			set {fastworldresetclonename::%arg 3%} to arg 3
-			loadWorld(arg 3, {worldgenerator::%arg 2%} ? "")
+			set {-fastworldresetworld::%{_newworld}%} to true
+			set {fastworldresetclone::%{_newworld}%} to {_template}
+			
+			#used because index is always lowercased, so we need a way to get real name
+			
+			set {fastworldresetclonename::%{_newworld}%} to {_newworld}
+			loadWorld({_newworld}, {worldgenerator::%{_template}%} ? "")
 			
 
 			
-			if (arg 3 parsed as a world) is a world:
-				send formatted "&a&lFastWorldReset&2&l> &aSuccessfully cloned &e%arg 2% &aworld into &e%arg 3% &aworld!"
+			if ({_newworld} parsed as a world) is a world:
+				send formatted "&a&lFastWorldReset&2&l> &aSuccessfully cloned &e%{_template}% &aworld into &e%{_newworld}% &aworld!"
 				send "&cNote: the cloned world will not load automatically, it just has been loaded now. You have to use &e/fwr create &con it, if you want it to load automatically."
 				send "&bYou can configure if world folders of clones get deleted on server startup in the script file."
-			set {fastworldreset::lastreset::%arg 3%} to new Date().getTime()
+			set {fastworldreset::lastreset::%{_newworld}%} to new Date().getTime()
 		else if arg 1 is "unload":
 			if arg 2 is not set:
 				send "&a&lFastWorldReset&2&l> &cPlease specify world name!"
