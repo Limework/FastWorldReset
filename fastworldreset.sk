@@ -5,6 +5,8 @@ options:
 	
 	ResetResettableWorldsOnRestart: true
 	AutoDeleteClonesOnRestart: true
+	#whether it should only reset "region" world folder contents and not other things like level.dat (It's cheaper to reset only region folder, but it doesn't reset world metadata, only the chunks, which may be not what you wish)
+	ResetOnlyRegionFolder: false
 	#whether /fwr create  will look for existing world folder or allow to create a new blank one. 
 	#Creating blank world will not function for resetting (as there will be no template) until you update template by running /fwr create on the same world again.
 	#useful for when you want to copypaste a map into a newly created world and then make it resettable
@@ -146,9 +148,12 @@ function resetWorld(input: text, sender: object):
 	else:
 		set {_template} to {_input}
 	
-	set {_source} to new File("%{_worlddir}%/FastWorldReset/%{_template}%")
-	set {_target} to new File("%{_worlddir}%/%{_input}%")
-	
+	if {@ResetOnlyRegionFolder} is false:
+		set {_source} to new File("%{_worlddir}%/FastWorldReset/%{_template}%")
+		set {_target} to new File("%{_worlddir}%/%{_input}%")
+	else:
+		set {_source} to new File("%{_worlddir}%/FastWorldReset/%{_template}%/region")
+		set {_target} to new File("%{_worlddir}%/%{_input}%/region")
 	create new section stored in {_section}:
 		FileUtils.deleteDirectory({_target})
 		FileUtils.copyDirectory({_source}, {_target})
@@ -638,6 +643,32 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 				send formatted "&a&lIs Loaded: &e%{_loaded}%"
 			else:
 				send formatted "&a&lFastWorldReset&2&l> &cThe specified world (%arg 2%) is not a FastWorldReset world."
+		else if arg 1 is "optimize-template":
+			if arg 2 is not set:
+				send "&cUsage: &e/fwr optimize-template <world>"
+				stop
+			{-fastworldresetworld::%arg 2%} is set:
+				set {_worlddir} to {-fwrcache::worlddir}
+				set {_templatedir} to new File("%{_worlddir}%/FastWorldReset/%{-fastworldresetworld::%arg 2%}%")
+				set {_files::*} to ...{_templatedir}.listFiles()
+				
+				loop {_files::*}:
+					if "%loop-value%" ends with "/region":
+						continue loop
+					else if "%loop-value%" ends with "/level.dat":
+						continue loop
+					add 1 to {_i}
+					set {_unneededfiles::%{_i}%} to "%loop-value%"
+				if amount of {_unneededfiles::*} is not 0:
+					send formatted "&a&lFastWorldReset&2&l> &cFound &e&l%amount of {_unneededfiles::*}% &cfiles that may be not needed for this world to function. It may be a good idea to delete them (unless they're needed for your world, maybe a plugin saved data here? but that's unlikely)"
+					send {_unneededfiles::*}
+					send formatted "&a&lFastWorldReset&2&l> &eYou can delete them manually by going to the directory. Only two things are required for world to function: the region folder and level.dat&e file. Make sure to not delete these two."
+				else:
+					send "&a&lFastWorldReset&2&l> &eThis template is already well optimized, no useless files found!"
+					
+				
+			else:
+				send formatted "&a&lFastWorldReset&2&l> &cThe specified world (%arg 2%) is not a FastWorldReset world."
 		else:
 
 			send "&2&l--=-= &a&lFastWorldReset Commands &2&l=-=--"
@@ -658,6 +689,7 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 			send "&f/fwr generators &a- list all world generators detected on the server."
 			send "&f/fwr info <world> &a- see information about the specified world."
 			send "&f/fwr resetstats &a- useful for debugging of reset bugs."
+			send "&f/fwr optimize-template <world> &a- useful for removing unneeded files from a world reset template."
 			send "&6Hover your mouse on the commands to see extra comments and tips."
 
 function initWorlds():
