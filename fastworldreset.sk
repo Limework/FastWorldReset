@@ -111,6 +111,18 @@ function unloadWorld(world: world, saving: boolean = true) :: boolean:
 	send "World unload took %difference between {_n} and now%" to console
 	return true
 function resetWorld(input: text, sender: object):
+	set {_world} to {_input} parsed as a world
+	{_world} is a world:
+		
+		#teleport out is needed to be able to unload the world
+		
+		teleportOut({_world})
+		
+		#waiting until all players are teleported out, to support asynchronous teleportations
+		
+		while amount of players in {_world} is not 0:
+			wait a tick
+
 	#mark world save as non-set
 	if {-fastworldreset::shouldreset::%{_input}%} is set:
 		delete {-fastworldreset::shouldreset::%{_input}%}
@@ -134,10 +146,11 @@ function resetWorld(input: text, sender: object):
 	else:
 		set {_template} to {_input}
 	
-	set {_source} to new File("%{_worlddir}%/FastWorldReset/%{_template}%/region")
-	set {_target} to new File("%{_worlddir}%/%{_input}%/region")
+	set {_source} to new File("%{_worlddir}%/FastWorldReset/%{_template}%")
+	set {_target} to new File("%{_worlddir}%/%{_input}%")
 	
 	create new section stored in {_section}:
+		FileUtils.deleteDirectory({_target})
 		FileUtils.copyDirectory({_source}, {_target})
 		
 	run section {_section} async and wait
@@ -242,32 +255,23 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 					
 			#make reset backup of the world
 			set {_n} to now
-			if {_notmissing} is true:
-				set {_w} to arg 2
-				set {_source} to new File("%{_worlddir}%/%arg 2%/region")
-				set {_target} to new File("%{_worlddir}%/FastWorldReset/%arg 2%/region")
-				create new section stored in {_section}:
-					FileUtils.deleteDirectory(new File("%{_worlddir}%/FastWorldReset/%{_w}%/region"))
-					FileUtils.copyDirectory({_source}, {_target})
-				run section {_section} async and wait
-			else:
-				set {_source} to new File("%{_worlddir}%/%arg 2%")
-				set {_target} to new File("%{_worlddir}%/FastWorldReset/%arg 2%")
-				set {_targetpath} to "%{_worlddir}%/FastWorldReset/%arg 2%"
-				set {_p} to sender
-				create new section stored in {_section}:
-					FileUtils.copyDirectory({_source}, {_target})
-					if {@AllowCreatingNewWorlds} is false:
-						Files.isDirectory(Paths.get({_targetpath})) is false:
-							send "&a&lFastWorldReset&2&l> &cFailed to copy world! Are file permissions right? Check console for errors." to {_p}
-							return true
-					set {_uid} to new File("%{_targetpath}%/uid.dat")
-					if {_uid}.exists() is true:
-						{_uid}.delete()
-					return false
-				run section {_section} async and store the result in {_failed} and wait
+			set {_source} to new File("%{_worlddir}%/%arg 2%")
+			set {_target} to new File("%{_worlddir}%/FastWorldReset/%arg 2%")
+			set {_targetpath} to "%{_worlddir}%/FastWorldReset/%arg 2%"
+			set {_p} to sender
+			create new section stored in {_section}:
+				FileUtils.copyDirectory({_source}, {_target})
+				if {@AllowCreatingNewWorlds} is false:
+					Files.isDirectory(Paths.get({_targetpath})) is false:
+						send "&a&lFastWorldReset&2&l> &cFailed to copy world! Are file permissions right? Check console for errors." to {_p}
+						return true
+				set {_uid} to new File("%{_targetpath}%/uid.dat")
+				if {_uid}.exists() is true:
+					{_uid}.delete()
+				return false
+			run section {_section} async and store the result in {_failed} and wait
 				
-				stop if {_failed} is true
+			stop if {_failed} is true
 
 				
 			set {fastworldreset::lastreset::%arg 2%} to new Date().getTime()
