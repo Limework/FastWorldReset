@@ -447,6 +447,16 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 			{_world} is not a world:
 				send "&a&lFastWorldReset&2&l> &cThere is no world loaded by the name of &e%arg 2%&c."
 				stop
+		
+			#teleport out is needed to be able to unload the world
+			
+			teleportOut({_world})
+			
+			#waiting until all players are teleported out, to support asynchronous teleportations
+			
+			while amount of players in {_world} is not 0:
+				wait a tick
+
 			unloadWorld({_world}) = true:
 				send "&a&lFastWorldReset&2&l> &aSuccessfully unloaded the world &e%arg 2%&a."
 			else:
