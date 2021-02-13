@@ -682,7 +682,7 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 		else:
 
 			send "&2&l--=-= &a&lFastWorldReset Commands &2&l=-=--"
-			send "&f/fwr create <world> [generator]  &a- Add a world to FastWorldReset system or create a completely new world into the system."
+			send "&f/fwr create <world> [generator]  &a- Add a world to FastWorldReset system or create a completely new world into the system. (Or update existing world's template)"
 			send "&f/fwr delete <world>  &a- Removes the world from FastWorldReset system, does not unload or delete the world."
 			send "&f/fwr clone <world> <new-world> &a- Clones a FWR world."
 			send "&f/fwr reset <world>  &a- to reset a world. (Must be in FastWorldReset system)"
@@ -771,8 +771,8 @@ on world init:
 		set {_config}.autoSavePeriod to 0
 		set {_config}.maxAutoSaveChunksPerTick to 0
 		
-		#needed, because if it is set as true... entity ticking may totally bug out with the way FastWorldReset's chunk-based reset mehod works
-		#it may sometimes cause behavior like projectiles constantly teleporting back and never landing if set to true
+		#in the past I thought this is needed, now I am not sure as I haven't noticed a difference, but I'll keep it here, just in case, it sounds logical to disable it for chunk-based reset
+		
 		set {_config}.skipEntityTickingInChunksScheduledForUnload to false
 
 	event-world.setKeepSpawnInMemory(false)
