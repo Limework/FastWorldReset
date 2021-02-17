@@ -288,6 +288,7 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 				loadWorld(arg 2)
 				
 			send "&a&lFastWorldReset&2&l> &aSuccessfully copied &e&l%arg 2% &aand made it resettable in &e&l%difference between {_n} and now%&e! If it doesn't work check console for errors."
+			send "&a&lFastWorldReset&2&l> &eIf you ever wish to update the template of this world, just run &b/fwr create %arg 2% &eagain!"
 	
 		else if arg 1 is "reset":
 		
@@ -562,7 +563,7 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 				stop
 			if {fastworldreset::chunkresetdisabled::%arg 2%} is set:
 				delete {fastworldreset::chunkresetdisabled::%arg 2%}
-				send "&a&lFastWorldReset&2&l> &aYou have enabled chunk-based reset for the world &e%arg 2% &aagain! Yay, faster world reset!"
+				send "&a&lFastWorldReset&2&l> &aYou have enabled chunk-based reset for the world &e%arg 2% &aagain! Yay, faster world reset! (Note chunk-based reset is only effective in 1.8-1.12.2)"
 				(arg 2 parsed as a world).setAutoSave(false)
 			else:
 				send "&a&lFastWorldReset&2&l> &cChunk-based reset is already enabled for the world &e%arg 2%&c!"
