@@ -34,12 +34,22 @@ on script load:
 	set {-fwrcache::mainworld} to {-fwrcache::bukkitgetserver}.getWorlds().get(0)
 	set {-fwrcache::fileseparator} to File.separator
 	set {-fwrcache::worlddir} to {-fwrcache::bukkitgetserver}.getWorldContainer().getPath()
+	
+	#always create FastWorldReset folder on startup if it isn't present
+	#mkdir method checks if folder already exists, so we don't need to check it ourselves
+
+	create new section stored in {_section}:
+		set {_file} to new File("%{-fwrcache::worlddir}%/FastWorldReset")
+		if {_file}.mkdir() is true:
+			send "[FastWorldReset] Created FastWorldReset directory at %{-fwrcache::worlddir}%%{-fwrcache::fileseparator}%FastWorldReset" to console
+	run section {_section} async
+
 	delete {-govindask}
 	if {-fwrcache::bukkitgetserver}.getPluginManager().getPlugin("GovindaSK") is set:
-		send "[FastWorldReset] GovindaSK found! Enabling faster chunk unloads." to console
+		send "[FastWorldReset] GovindaSK found! Enabling faster chunk unloads in chunk-based reset." to console
 		set {-govindask} to true
 	else:
-		send "[FastWorldReset] GovindaSK not found, falling back to a slower, reflection way of unloading chunks. (2 errors related to chunk unloading will appear, but you can safely ignore them)" to console
+		send "[FastWorldReset] GovindaSK not found, falling back to a slower, reflection way of unloading chunks in chunk-based reset. (2 errors related to chunk unloading will appear, but you can safely ignore them)" to console
 	
 	wait 5 seconds
 	#get list of world generators for /fwr generator command
