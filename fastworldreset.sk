@@ -638,7 +638,7 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 			
 				send formatted "&a&lWorld: &e%{-fastworldresetworld::%arg 2%}%"
 				
-				if {fastworldreset::chunkresetdisabled::%{_world}%} is set:
+				if {fastworldreset::chunkresetdisabled::%arg 2%} is set:
 					set {_type} to "world-based"
 				else:
 					set {_type} to "chunk-based with fallback to world-based if it fails"
@@ -689,7 +689,7 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 			send "&f/fwr exit  &a- sets exit point to where players get teleported when their world resets."
 			send "&f/fwr load <world> [generator] &a- loads a world. Optionally with a generator."
 			send "&f/fwr unload <world> [<true/false>] &a- loads a world. true/false if the world should be saved, defaults to true."
-			send formatted "<ttp:&f/fwr unload <world>%new line%&7May be useful for unloading worlds which you no longer need.>&f/fwr unload <world>  &a- unload a world."
+			send formatted "<ttp:&f/fwr unload <world>%newline%&7May be useful for unloading worlds which you no longer need.>&f/fwr unload <world>  &a- unload a world."
 			send "&f/fwr unload-chunks <world> <true/false> &a- unloads chunks in the specified world, with saving or without."
 			send "&f/fwr tp <world> [player]  &a- teleport to a world or teleport another player to the world."
 			send formatted "<ttp:&f/fwr disable-chunk-reset <world>%{_newline}%&7May be useful in situations where the world uses very much RAM and you prefer slower reset than higher RAM usage>&f/fwr disable-chunk-reset <world>  &a- disables chunk-based resetting of the specified world, which makes the chunks unload normally."
