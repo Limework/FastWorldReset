@@ -2,16 +2,21 @@ options:
 #------------- Start of Configuration -------------
 	#recommended to have this as true for things which have to never save changes
 	#NOTE: this will function only if the world has been edited since last reset, if it hasn't been edited, to save performance it will not do useless reset. YAY!
-	
+
 	ResetResettableWorldsOnRestart: true
 	AutoDeleteClonesOnRestart: true
 	#whether it should only reset "region" world folder contents and not other things like level.dat (It's cheaper to reset only region folder, but it doesn't reset world metadata, only the chunks, which may be not what you wish)
-	ResetOnlyRegionFolder: false
-	#whether /fwr create  will look for existing world folder or allow to create a new blank one. 
+	ResetOnlyRegionFolder: true
+	#whether /fwr create  will look for existing world folder or allow to create a new blank one.
 	#Creating blank world will not function for resetting (as there will be no template) until you update template by running /fwr create on the same world again.
 	#useful for when you want to copypaste a map into a newly created world and then make it resettable
 	#without having to go through another world management plugin to do it
 	AllowCreatingNewWorlds: true
+
+
+	#by default saving is only disabled in chunk-based reset worlds, not world-based reset ones.
+	#this option disables world saving in all resettable worlds
+	DisableSavingInAllResettableWorlds: false
 
 #------------- End of Configuration -------------
 #The script starts here, only edit if you know what you are doing.
@@ -34,7 +39,7 @@ on script load:
 	set {-fwrcache::mainworld} to {-fwrcache::bukkitgetserver}.getWorlds().get(0)
 	set {-fwrcache::fileseparator} to File.separator
 	set {-fwrcache::worlddir} to {-fwrcache::bukkitgetserver}.getWorldContainer().getPath()
-	
+
 	#always create FastWorldReset folder on startup if it isn't present
 	#mkdir method checks if folder already exists, so we don't need to check it ourselves
 
@@ -50,44 +55,44 @@ on script load:
 		set {-govindask} to true
 	else:
 		send "[FastWorldReset] GovindaSK not found, falling back to a slower, reflection way of unloading chunks in chunk-based reset. (2 errors related to chunk unloading will appear, but you can safely ignore them)" to console
-	
+
 	wait 5 seconds
 	#get list of world generators for /fwr generator command
-	
+
 	delete {-worldgenerators::*}
-	
+
 	set {_plugins::*} to ...{-fwrcache::bukkitgetserver}.getPluginManager().getPlugins()
-	
+
 	loop {_plugins::*}:
-	
-	
-		
+
+
+
 		set {_value} to loop-value.getDefaultWorldGenerator("%{-fwrcache::mainworld}%", "")
-	
+
 		if {_value} is set:
 			delete {_value}
-			
+
 			add 1 to {_i}
 			set {_name} to loop-value.getDescription().getName()
 			set {-worldgenerators::%{_name}%} to {_name}
 
 event "world_reset_start":
-	patterns: 
+	patterns:
 		start of world reset
 		world reset start
 	event-values: world
 event "world_reset_complete":
-	patterns: 
+	patterns:
 		complete of world reset
 		world reset complete
 	event-values: world
-	
+
 function unloadChunks(world: world, saving: boolean) :: boolean:
 	set {-resetting::%{_world}%} to true
 	set {_n} to now
-	
+
 	#requires GovindaSK
-	
+
 	if {-govindask} is set:
 		if {_saving} is true:
 			unload all chunks in {_world} with saving
@@ -108,7 +113,7 @@ function teleportOut(world: world):
 	if {fastworldreset::exitpoint} is not a location:
 		delete {fastworldreset::exitpoint}
 	set {_spawnpoint} to {fastworldreset::exitpoint} ? (spawn point of "%{-fwrcache::mainworld}%" parsed as a world)
-	
+
 	loop all players in {_world}:
 		if passenger of loop-player is set:
 			loop passengers of loop-player:
@@ -116,22 +121,22 @@ function teleportOut(world: world):
 	teleport (all players in {_world}) to {_spawnpoint}
 function unloadWorld(world: world, saving: boolean = true) :: boolean:
 	set {_n} to now
-		
+
 	#unload the world
-	
+
 	Bukkit.unloadWorld("%{_world}%", {_saving})
 	send "World unload took %difference between {_n} and now%" to console
 	return true
 function resetWorld(input: text, sender: object):
 	set {_world} to {_input} parsed as a world
 	{_world} is a world:
-		
+
 		#teleport out is needed to be able to unload the world
-		
+
 		teleportOut({_world})
-		
+
 		#waiting until all players are teleported out, to support asynchronous teleportations
-		
+
 		while amount of players in {_world} is not 0:
 			wait a tick
 
@@ -140,7 +145,7 @@ function resetWorld(input: text, sender: object):
 		delete {-fastworldreset::shouldreset::%{_input}%}
 	set {_world} to {_input} parsed as a world
 	#stats for problem identification
-					
+
 	add 1 to {-resetstats::%{_input}%::worldbased}
 	set {-resetstats::%{_input}%::last} to "world"
 	if {_world} is a world:
@@ -150,14 +155,14 @@ function resetWorld(input: text, sender: object):
 			stop
 
 	set {-resetting::%{_input}%} to now
-	
+
 	set {_worlddir} to {-fwrcache::worlddir}
-	
+
 	if {fastworldresetclone::%{_input}%} is set:
 		set {_template} to {fastworldresetclone::%{_input}%}
 	else:
 		set {_template} to {_input}
-	
+
 	if {@ResetOnlyRegionFolder} is false:
 		set {_source} to new File("%{_worlddir}%/FastWorldReset/%{_template}%")
 		set {_target} to new File("%{_worlddir}%/%{_input}%")
@@ -167,22 +172,22 @@ function resetWorld(input: text, sender: object):
 	create new section stored in {_section}:
 		FileUtils.deleteDirectory({_target})
 		FileUtils.copyDirectory({_source}, {_target})
-		
+
 	run section {_section} async and wait
 
 	if {worldgenerator::%{_template}%} is set:
 		{-fwrcache::bukkitgetserver}.createWorld(new WorldCreator({_input}).generator({worldgenerator::%{_template}%}))
 	else:
 		{-fwrcache::bukkitgetserver}.createWorld(new WorldCreator({_input}))
-		
+
 	set {fastworldreset::lastreset::%{_input}%} to new Date().getTime() #unix time, not using vanilla skript syntax as we need milliseconds support
-	
+
 	send "&a&lFastWorldReset&2&l> &cReset &e%{_input}% &cvia world-based method." to {_sender}
-		
+
 	delete {-resetting::%{_input}%}
-		
+
 	set {_ev::world} to {_input} parsed as a world
-	set {_evt} to custom event "world_reset_complete" with {_ev::*} 
+	set {_evt} to custom event "world_reset_complete" with {_ev::*}
 	call event {_evt}
 import:
 	org.bukkit.World$Environment
@@ -206,7 +211,7 @@ function loadWorld(world: text, generator: text = "", environment: text = ""):
 		{-fwrcache::bukkitgetserver}.createWorld(new WorldCreator({_world}).generator({_generator}).environment(Environment.valueOf({_environment} in uppercase)))
 	else:
 		{-fwrcache::bukkitgetserver}.createWorld(new WorldCreator({_world}))
-		
+
 #blacklist of things that can do bad stuff in windows/linux if used in folder names.
 
 function blacklist(input: text) :: boolean:
@@ -219,7 +224,7 @@ function blacklist(input: text) :: boolean:
 		return true
 	if last character of {_input} = " " or ".":
 		return true
-		
+
 	return false
 command /fastworldreset [<text>] [<text>] [<text>]:
 	permission: fastworldreset.use
@@ -249,9 +254,9 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 					return false
 			run section {_section} async and store the result in {_notmissing} and wait
 
-				
+
 			set {_world} to arg 2 parsed as a world
-			
+
 			if {_world} is a world:
 				send "&a&lFastWorldReset&2&l> &6Hm.. seems like this world is already loaded, saving it!"
 				send "&a&lFastWorldReset&2&l> &eWaiting for world save..."
@@ -267,7 +272,7 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 						send "&cFailed to unload."
 						stop
 					wait a tick
-					
+
 			#make reset backup of the world
 			set {_n} to now
 			set {_source} to new File("%{_worlddir}%/%arg 2%")
@@ -285,10 +290,10 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 					{_uid}.delete()
 				return false
 			run section {_section} async and store the result in {_failed} and wait
-				
+
 			stop if {_failed} is true
 
-				
+
 			set {fastworldreset::lastreset::%arg 2%} to new Date().getTime()
 			set {-fastworldresetworld::%arg 2%} to true
 			#load world back after reset has been made
@@ -296,53 +301,53 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 				set {worldgenerator::%arg 2%} to arg 3
 			if (arg 2 parsed as a world) is not a world:
 				loadWorld(arg 2)
-				
+
 			send "&a&lFastWorldReset&2&l> &aSuccessfully copied &e&l%arg 2% &aand made it resettable in &e&l%difference between {_n} and now%&e! If it doesn't work check console for errors."
 			send "&a&lFastWorldReset&2&l> &eIf you ever wish to update the template of this world, just run &b/fwr create %arg 2% &eagain!"
-	
+
 		else if arg 1 is "reset":
-		
+
 			if arg 2 is not set:
 				send "&a&lFastWorldReset&2&l> &cPlease specify world name!"
 				stop
-			
+
 			set {_worlddir} to {-fwrcache::worlddir}
-			
+
 			if {-fastworldresetworld::%arg 2%} is set:
 				set {_world} to arg 2 parsed as a world
-				
+
 				if {_world} is not a world:
 					set {_worldreset} to true
 				else if {fastworldreset::chunkresetdisabled::%arg 2%} or {-fastworldreset::shouldreset::%arg 2%} is set:
 					set {_worldreset} to true
 				else if {fastworldreset::lastreset::%arg 2%} is not set:
 					set {_worldreset} to true
-					
+
 				set {_template} to {fastworldresetclone::%arg 2%} ? arg 2
-				
+
 				set {_ev::world} to {_world}
 				set {_w} to arg 2
 				call event (custom event "world_reset_start" with {_ev::*})
 				{_worldreset} is not set:
-				
+
 					#detect world save as world save event doesn't always call
-					
+
 					create section stored in {_section}:
 						if ((new File("%{_worlddir}%/%{_w}%/level.dat")).lastModified()) is higher than {fastworldreset::lastreset::%{_w}%}:
 							return true
-							
+
 					run section {_section} async and store the result in {_worldreset} and wait
 				{_worldreset} is true:
 					resetWorld(arg 2, sender)
 				else:
-				
+
 					teleportOut({_world})
-					
+
 					#waiting until all players are teleported out, to support asynchronous teleportations
-					
+
 					while amount of players in {_world} is not 0:
 						wait a tick
-					
+
 					#needed to detect improperly reset world when a bad plugin is disturbing reset, such as FastAsyncWorldEdit
 
 					create section stored in {_section}:
@@ -355,13 +360,13 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 						send "&a&lFastWorldReset&2&l> &cFailed to unload chunks, falling back to world-based reset method."
 						resetWorld(arg 2, sender)
 					else:
-					
+
 						wait a tick #needed to detect failed avoidance of chunk save caused by bad plugins
-						
+
 						#run same section again for comparison
 
 						run section {_section} async and store the result in {_modify2} and wait
-						
+
 						difference between {_modify} and {_modify2} is higher than 0:
 							send "&a&lFastWorldReset&2&l> &cFailed to not save chunks. Possibly using a bad plugin which does this? Falling back to world-based reset."
 							resetWorld(arg 2, sender)
@@ -369,23 +374,23 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 							set {-resetstats::%arg 2%::last} to "world (after failed chunk save avoid, likely caused by bad plugin)"
 						else:
 							send "&a&lFastWorldReset&2&l> &cReset &e%arg 2% &cvia chunks-based method."
-						
+
 							#stats for problem identification
-						
+
 							add 1 to {-resetstats::%arg 2%::chunkbased}
 							set {-resetstats::%arg 2%::last} to "chunk"
 							set {_ev::world} to {_world}
-							set {_evt} to custom event "world_reset_complete" with {_ev::*} 
+							set {_evt} to custom event "world_reset_complete" with {_ev::*}
 							call event {_evt}
-			
+
 			else:
 				send "&a&lFastWorldReset&2&l> &e&l%arg 2% &cis not a FastWorldReset world!"
 		else if arg 1 is "load":
-		
+
 			if blacklist(arg 2) is true:
 				send "&a&lFastWorldReset&2&l> &cYour input cannot use illegal characters!"
 				stop
-				
+
 			if arg 2 is not set:
 				send "&a&lFastWorldReset&2&l> &cPlease specify world name!"
 				stop
@@ -409,14 +414,14 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 			if (arg 3 parsed as a world) is a world:
 				send formatted "&a&lFastWorldReset&2&l> &cThe specified world is already loaded! (%arg 3%)"
 				stop
-			
+
 			#if the specified template is a clone in itself, then use the clone's template
-			
+
 			if {fastworldresetclone::%arg 2%} is set:
 				set {_template} to {fastworldresetclone::%arg 2%}
 			else:
 				set {_template} to arg 2
-				
+
 			set {_newworld} to arg 3
 			set {_templatedir} to "%{_worlddir}%/FastWorldReset/%{_template}%"
 			set {_p} to sender
@@ -428,20 +433,20 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 					send formatted "&a&lFastWorldReset&2&l> &6Hm... There's already %{_newworld}% world folder, I'll just load it then." to {_p}
 				else:
 					FileUtils.copyDirectory((new File("%{_templatedir}%")), (new File("%{_worlddir}%/%{_newworld}%")))
-					
+
 				return false
 			run section {_section} async and store the result in {_stop} and wait
 			stop if {_stop} is true
 			set {-fastworldresetworld::%{_newworld}%} to true
 			set {fastworldresetclone::%{_newworld}%} to {_template}
-			
+
 			#used because index is always lowercased, so we need a way to get real name
-			
+
 			set {fastworldresetclonename::%{_newworld}%} to {_newworld}
 			loadWorld({_newworld}, {worldgenerator::%{_template}%} ? "")
-			
 
-			
+
+
 			if ({_newworld} parsed as a world) is a world:
 				send formatted "&a&lFastWorldReset&2&l> &aSuccessfully cloned &e%{_template}% &aworld into &e%{_newworld}% &aworld!"
 				send "&cNote: the cloned world will not load automatically, it just has been loaded now. You have to use &e/fwr create &con it, if you want it to load automatically."
@@ -458,13 +463,13 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 			{_world} is not a world:
 				send "&a&lFastWorldReset&2&l> &cThere is no world loaded by the name of &e%arg 2%&c."
 				stop
-		
+
 			#teleport out is needed to be able to unload the world
-			
+
 			teleportOut({_world})
-			
+
 			#waiting until all players are teleported out, to support asynchronous teleportations
-			
+
 			while amount of players in {_world} is not 0:
 				wait a tick
 
@@ -472,7 +477,7 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 				send "&a&lFastWorldReset&2&l> &aSuccessfully unloaded the world &e%arg 2%&a."
 			else:
 				send "&a&lFastWorldReset&2&l> &cThere was an error in unloading the world &e%{_world}%&c, see console and report any problems to author Govindas."
-				
+
 		else if arg 1 is "teleport" or "tp":
 			if arg 2 is not set:
 				send "&a&lFastWorldReset&2&l> &cUsage: &e/fwr teleport <world> [player]"
@@ -490,7 +495,7 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 			teleport {_player} to (spawn point of arg 2 parsed as a world)
 
 		else if arg 1 is "delete":
-		
+
 			if arg 2 is not set:
 				send "&a&lFastWorldReset&2&l> &cPlease specify world name!"
 				stop
@@ -498,7 +503,7 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 				send "&a&lFastWorldReset&2&l> &cYou must specify existing world name."
 				stop
 			set {_worlddir} to {-fwrcache::worlddir}
-			
+
 			{-confirmfwrdelete::%sender%::%arg 2%} is set:
 				if difference between {-confirmfwrdelete::%sender%::%arg 2%} and now is higher than 15 seconds:
 					delete {-confirmfwrdelete::%sender%::%arg 2%}
@@ -506,44 +511,44 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 				set {-confirmfwrdelete::%sender%::%arg 2%} to now
 				send colored "&a&lFastWorldReset&2&l> &6Are you sure you want to delete %arg 2%? Type the command again to confirm. (You have 15 seconds)"
 				stop
-				
+
 			if {worldgenerator::%arg 2%} is set:
 				delete {worldgenerator::%arg 2%}
-				
+
 			if {worldenvironment::%arg 2%} is set:
 				delete {worldenvironment::%arg 2%}
-				
+
 			if {fastworldreset::chunkresetdisabled::%arg 2%} is set:
-				delete {fastworldreset::chunkresetdisabled::%arg 2%} 
-				
+				delete {fastworldreset::chunkresetdisabled::%arg 2%}
+
 			if {-resetstats::%arg 2%::*} is set:
 				delete {-resetstats::%arg 2%::*}
-				
-				
+
+
 			#just in case if it's a clone
 			if {fastworldresetclone::%arg 2%} is set:
 				delete {fastworldresetclone::%arg 2%}
 				set {_clone} to true
-				
+
 			if {fastworldresetclonename::%arg 2%} is set:
 				delete {fastworldresetclonename::%arg 2%}
 			#
-				
+
 			delete {-fastworldresetworld::%arg 2%}
-			
+
 			if (arg 2 parsed as a world) is a world:
 				send "&a&lFastWorldReset&2&l> &6Hm.. Seems like this world is loaded, unloading it and saving!"
 				if unloadWorld((arg 2 parsed as a world), true) is true:
 					send "&a&lFastWorldReset&2&l> &6Unloaded successfully!"
 				else:
 					send "&a&lFastWorldReset&2&l> &cFailed to unload."
-				
+
 			send "&a&lFastWorldReset&2&l> &aYou have removed world &e&l%arg 2% &afrom the system of FastWorldReset."
 			set {_w} to arg 2
 			set {_p} to sender
 			create section stored in {_section}:
-				
-				
+
+
 				if {_clone} is set:
 					FileUtils.deleteDirectory(new File("%{_worlddir}%/%{_w}%"))
 					send "&a&lFastWorldReset&2&l> &6Since this world is a clone, deleted it from the world folder." to {_p}
@@ -577,31 +582,31 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 				(arg 2 parsed as a world).setAutoSave(false)
 			else:
 				send "&a&lFastWorldReset&2&l> &cChunk-based reset is already enabled for the world &e%arg 2%&c!"
-			
+
 		else if arg 1 is "worlds":
 
 			send " "
 			send "&6- &a&l Worlds &6-"
 			loop all worlds:
 				send formatted "&e%loop-world% &6- &e&l%amount of ...loop-world.getLoadedChunks()% &cchunks &e&l%amount of entities in loop-world% &centities"
-		
+
 		else if arg 1 is "unload-chunks":
-		
+
 			if (arg 2 parsed as a world) is not a world:
 				send "&a&lFastWorldReset&2&l> &cThe specified world &e%arg 2% &cis not loaded."
 				stop
 			if (arg 3 parsed as a boolean) is not a boolean:
 				send "&a&lFastWorldReset&2&l> &cUsage: &e/fwr unload-chunks <world> <boolean> &cThe boolean stands for saving true or saving false."
 				stop
-				
+
 			set {_saving} to arg 3 parsed as a boolean
 			set {_world} to arg 2 parsed as a world
-			
+
 			set {-unloading::%{_world}%} to true
-			
+
 			unloadChunks(({_world}), {_saving}) = true
 			delete {-unloading::%{_world}%}
-			
+
 			if amount of ...{_world}.getLoadedChunks() is not 0:
 				send "&a&lFastWorldReset&2&l> &cSome chunks have failed to unload, due to some plugin or players keeping chunks loaded."
 		else if arg 1 is "generator":
@@ -613,10 +618,10 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 			if {-fastworldresetworld::%arg 2%} is not set:
 				send "&a&lFastWorldReset&2&l> &e%arg 2% &cis not a FastWorldReset world."
 				stop
-			
+
 			else:
 				set {_prev} to "%{worldgenerator::%arg 2%}%"
-				
+
 				arg 3 is not "Default":
 					set {worldgenerator::%arg 2%} to arg 3
 				else:
@@ -625,7 +630,7 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 					send formatted "&a&lFastWorldReset&2&l> &e%arg 2% &cis already using &e%arg 3%&c!"
 					stop
 				send "&a&lFastWorldReset&2&l> &aYou have set the world generator of &e%arg 2% &ato &e%arg 3%"
-				
+
 				if {-worldgenerators::%arg 3%} is not set:
 					send colored "&cWARNING: The specified generator (%arg 3%) has not been found on the server, but this may be a mistake."
 		else if arg 1 is "generators":
@@ -646,17 +651,17 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 				send "&cUsage: &e/fwr info <world>"
 				stop
 			{-fastworldresetworld::%arg 2%} is set:
-			
+
 				send formatted "&a&lWorld: &e%{-fastworldresetworld::%arg 2%}%"
-				
+
 				if {fastworldreset::chunkresetdisabled::%arg 2%} is set:
 					set {_type} to "world-based"
 				else:
 					set {_type} to "chunk-based with fallback to world-based if it fails"
-					
+
 				send formatted "&a&lReset Type: &e%{_type}%"
 				send formatted "&a&lGenerator: &e%{worldgenerator::%arg 2%} ? ""Default""%"
-				
+
 				if arg 2 parsed as a world is a world:
 					set {_loaded} to true
 				else:
@@ -672,7 +677,7 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 				set {_worlddir} to {-fwrcache::worlddir}
 				set {_templatedir} to new File("%{_worlddir}%/FastWorldReset/%{-fastworldresetworld::%arg 2%}%")
 				set {_files::*} to ...{_templatedir}.listFiles()
-				
+
 				loop {_files::*}:
 					if "%loop-value%" ends with "/region":
 						continue loop
@@ -686,8 +691,8 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 					send formatted "&a&lFastWorldReset&2&l> &eYou can delete them manually by going to the directory. Only two things are required for world to function: the region folder and level.dat&e file. Make sure to not delete these two."
 				else:
 					send "&a&lFastWorldReset&2&l> &eThis template is already well optimized, no useless files found!"
-					
-				
+
+
 			else:
 				send formatted "&a&lFastWorldReset&2&l> &cThe specified world (%arg 2%) is not a FastWorldReset world."
 		else:
@@ -717,27 +722,28 @@ function initWorlds():
 
 	#just in case if the user hasn't configured variables starting with "-" character to not save to database.
 	delete {-fastworldresetworld::*}, {-unloading::*}, {-resetting::*} and {-initload::*}
-	
+
 	set {_worlddir} to {-fwrcache::worlddir}
 	create section stored in {_section}:
 		set {_files::*} to ...new File("%{_worlddir}%/FastWorldReset").listFiles()
 		loop {_files::*}:
 			Files.isDirectory(Paths.get("%loop-value%")) is true:
-				
+
 				set {_value} to "%loop-value%"
 				set {_r::*} to split "%loop-value%" by "%{-fwrcache::fileseparator}%FastWorldReset%{-fwrcache::fileseparator}%"
 				set {_return::%loop-index%} to {_r::2}
 		return {_return::*}
 	run section {_section} async and store the result in {_worlds::*} and wait
-		
+
 	loop {_worlds::*}:
 		set {-fastworldresetworld::%loop-value%} to loop-value
 		if {@ResetResettableWorldsOnRestart} is true:
 			make console execute command "/fastworldreset reset %loop-value%"
-			
-		else if loop-value parsed as a world is not a world:
+
+		else if (loop-value parsed as a world) is not a world:
 			loadWorld(loop-value)
 function deleteClones():
+	{fastworldresetclone::*} is set
 	set {_worlddir} to {-fwrcache::worlddir}
 	create section stored in {_section}:
 		loop {fastworldresetclone::*}:
@@ -745,7 +751,7 @@ function deleteClones():
 	run section {_section} async and wait
 	delete {fastworldresetclone::*}
 	delete {fastworldresetclonename::*}
-	
+
 on skript load:
 	wait a second
 	initWorlds()
@@ -771,22 +777,28 @@ on world init:
 	else:
 		set {_options} to "%event-world%"
 	{-fastworldresetworld::%{_options}%} is set
+
+	#reduces ram usage by disabling spawn chunks
+	event-world.setKeepSpawnInMemory(false)
+
 	{fastworldreset::chunkresetdisabled::%{_options}%} is not set:
+		set {_disablesaving} to true
+	else if {@DisableSavingInAllResettableWorlds} is true:
+		set {_disablesaving} to true
+
+	{_disablesaving} is set:
+
 		event-world.setAutoSave(false)
-		
+
 		#for Paper servers, to disable saving
-		
+
 		#setting it to variable for better performance for doing it twice
 		set {_config} to event-world.getHandle().paperConfig
-		
+
 		set {_config}.autoSavePeriod to 0
 		set {_config}.maxAutoSaveChunksPerTick to 0
-		
-		#in the past I thought this is needed, now I am not sure as I haven't noticed a difference, but I'll keep it here, just in case, it sounds logical to disable it for chunk-based reset
-		
-		set {_config}.skipEntityTickingInChunksScheduledForUnload to false
 
-	event-world.setKeepSpawnInMemory(false)
+
 on world saving:
 	{fastworldreset::chunkresetdisabled::%event-world%} is not set
 	set {-fastworldreset::shouldreset::%event-world%} to true
