@@ -57,25 +57,6 @@ on script load:
 	else:
 		send "[FastWorldReset] GovindaSK not found, falling back to a slower, reflection way of unloading chunks in chunk-based reset. (2 errors related to chunk unloading will appear, but you can safely ignore them)" to console
 
-	wait 5 seconds
-	#get list of world generators for /fwr generator command
-
-	delete {-worldgenerators::*}
-
-	set {_plugins::*} to ...{-fwrcache::bukkitgetserver}.getPluginManager().getPlugins()
-
-	loop {_plugins::*}:
-
-
-
-		set {_value} to loop-value.getDefaultWorldGenerator("%{-fwrcache::mainworld}%", "")
-
-		if {_value} is set:
-			delete {_value}
-
-			add 1 to {_i}
-			set {_name} to loop-value.getDescription().getName()
-			set {-worldgenerators::%{_name}%} to {_name}
 
 event "world_reset_start":
 	patterns:
@@ -133,7 +114,7 @@ function resetWorld(input: text, sender: object):
 	{_world} is a world:
 
 		#teleport out is needed to be able to unload the world
-
+		amount of players in {_world} is not 0
 		teleportOut({_world})
 
 		#waiting until all players are teleported out, to support asynchronous teleportations
@@ -159,10 +140,8 @@ function resetWorld(input: text, sender: object):
 
 	set {_worlddir} to {-fwrcache::worlddir}
 
-	if {fastworldresetclone::%{_input}%} is set:
-		set {_template} to {fastworldresetclone::%{_input}%}
-	else:
-		set {_template} to {_input}
+	#use original template if this world is a clone
+	set {_template} to {fastworldresetclone::%{_input}%} ? {_input}
 
 	if {@ResetOnlyRegionFolder} is false:
 		set {_source} to new File("%{_worlddir}%/FastWorldReset/%{_template}%")
@@ -170,17 +149,31 @@ function resetWorld(input: text, sender: object):
 	else:
 		set {_source} to new File("%{_worlddir}%/FastWorldReset/%{_template}%/region")
 		set {_target} to new File("%{_worlddir}%/%{_input}%/region")
+
+	send "&a&lFastWorldReset&2&l> &cStarting to reset &e%{_input}% &cworld..." to {_sender}
 	create new section stored in {_section}:
+		if {_target} is not set:
+			send "&a&lFastWorldReset&2&l> %{_input}% deleteDir somehow was null?" to {_sender}
 		FileUtils.deleteDirectory({_target})
 		FileUtils.copyDirectory({_source}, {_target})
 
 	run section {_section} async and wait
+
+	if {_input} is not set:
+		send "&a&lFastWorldReset&2&l> &c&lCRITICAL ERROR: &cworld name became null during reset, so it was unable to complete." to console
 
 	if {worldgenerator::%{_template}%} is set:
 		{-fwrcache::bukkitgetserver}.createWorld(new WorldCreator({_input}).generator({worldgenerator::%{_template}%}))
 	else:
 		{-fwrcache::bukkitgetserver}.createWorld(new WorldCreator({_input}))
 
+	delete {-resetting::%{_input}%}
+
+	if ("%{_input}%" parsed as a world) is not a world:
+		send "&c------------------" to console
+		send "&a&lFastWorldReset&2&l> &c&lCRITICAL ERROR: world &e%{_input}% &chas failed to load after a reset." to console
+		send "&c------------------" to console
+		stop
 	set {fastworldreset::lastreset::%{_input}%} to new Date().getTime() #unix time, not using vanilla skript syntax as we need milliseconds support
 
 	send "&a&lFastWorldReset&2&l> &cReset &e%{_input}% &cvia world-based method." to {_sender}
@@ -619,7 +612,6 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 		else if arg 1 is "generator":
 			if arg 2 or arg 3 is not set:
 				send "&cUsage: &e/fwr generator <world> <generator>"
-				send "&cList of World Generators: &eDefault, %{-worldgenerators::*} ? """"%"
 				stop
 			set {_worlddir} to {-fwrcache::worlddir}
 			if {-fastworldresetworld::%arg 2%} is not set:
@@ -638,10 +630,18 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 					stop
 				send "&a&lFastWorldReset&2&l> &aYou have set the world generator of &e%arg 2% &ato &e%arg 3%"
 
-				if {-worldgenerators::%arg 3%} is not set:
-					send colored "&cWARNING: The specified generator (%arg 3%) has not been found on the server, but this may be a mistake."
 		else if arg 1 is "generators":
 			send colored "&a&lFastWorldReset&2&l> &cList of World Generators: &eDefault, %{-worldgenerators::*} ? """"%"
+			send "&eDefault"
+
+
+			set {_plugins::*} to ...{-fwrcache::bukkitgetserver}.getPluginManager().getPlugins()
+			loop {_plugins::*}:
+
+
+
+				if loop-value.getDefaultWorldGenerator("%{-fwrcache::mainworld}%", "") is set:
+					send "&e%loop-value.getDescription().getName()%"
 		else if arg 1 is "resetstats":
 			if arg 2 is set:
 				set {_world} to arg 2
