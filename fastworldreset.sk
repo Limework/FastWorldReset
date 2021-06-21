@@ -563,6 +563,9 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 			set {fastworldreset::exitpoint} to location of player
 			send "&a&lFastWorldReset&2&l> &aYou have successfully set exit point at &e&l%{fastworldreset::exitpoint}%"
 		else if arg 1 is "disable-chunk-reset":
+			if arg 2 is not set:
+				send "&a&lFastWorldReset&2&l> &cUsage: &e/fwr disable-chunk-reset <world>"
+				stop
 			if (arg 2 parsed as a world) is not a world:
 				send "&a&lFastWorldReset&2&l> &cThe specified world &e%arg 2% &cis not loaded."
 				stop
@@ -573,6 +576,9 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 			else:
 				send "&a&lFastWorldReset&2&l> &cChunk-based reset is already disabled in world &e%arg 2%&c!"
 		else if arg 1 is "enable-chunk-reset":
+			if arg 2 is not set:
+				send "&a&lFastWorldReset&2&l> &cUsage: &e/fwr disable-chunk-reset <world>"
+				stop
 			if (arg 2 parsed as a world) is not a world:
 				send "&a&lFastWorldReset&2&l> &cThe specified world &e%arg 2% &cis not loaded."
 				stop
