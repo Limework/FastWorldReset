@@ -16,6 +16,7 @@ options:
 
 	#by default saving is only disabled in chunk-based reset worlds, not world-based reset ones.
 	#this option disables world saving in all resettable worlds
+	#NOTE: this option is not fool-proof, the world may still get saved under some conditions, it only helps in some cases
 	DisableSavingInAllResettableWorlds: false
 
 #------------- End of Configuration -------------
