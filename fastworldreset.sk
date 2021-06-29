@@ -648,7 +648,7 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 			else:
 				set {_world} to "%player's world%"
 			if {-resetstats::%{_world}%::last} is set:
-				send "&cLast reset type: &e&l%{-resetstats::%{_world}%::last} ? ""Unknown""%"
+				send "&cLast reset type: &e&l%{-resetstats::%{_world}%::last} ? "Unknown"%"
 				send "&cWorld-based resets: &e&l%{-resetstats::%{_world}%::worldbased} ? 0%"
 				send "&cChunk-based resets: &e&l%{-resetstats::%{_world}%::chunkbased} ? 0%"
 			else:
@@ -667,7 +667,7 @@ command /fastworldreset [<text>] [<text>] [<text>]:
 					set {_type} to "chunk-based with fallback to world-based if it fails"
 
 				send formatted "&a&lReset Type: &e%{_type}%"
-				send formatted "&a&lGenerator: &e%{worldgenerator::%arg 2%} ? ""Default""%"
+				send formatted "&a&lGenerator: &e%{worldgenerator::%arg 2%} ? "Default"%"
 
 				if arg 2 parsed as a world is a world:
 					set {_loaded} to true
